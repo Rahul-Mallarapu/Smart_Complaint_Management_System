@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Complaint Management System</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f4f6f8;
+            font-family: Arial, sans-serif;
+        }
+
+        /* MAIN CONTAINER */
+        .container {
+            width: 620px;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.18);
+            display: flex;
+            flex-direction: column;
+            gap: 26px;
+        }
+
+        /* WELCOME MESSAGE */
+        .welcome {
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        /* FORM LAYOUT */
+        .form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        textarea {
+            resize: none;
+            height: 100px;
+        }
+
+        /* BUTTONS */
+        .button-group {
+            display: flex;
+            gap: 14px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1e4ed8;
+        }
+
+        .secondary {
+            background: #6b7280;
+        }
+
+        .secondary:hover {
+            background: #4b5563;
+        }
+
+        /* DASHBOARDS */
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* LIST & CARDS */
+        .list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card {
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background: #f9fafb;
+            font-size: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="welcome">
+        Welcome to Smart Complaint Management System
+    </div>
+
+    <!-- AUTH SECTION -->
+    <div id="auth" class="form">
+        <h2 style="text-align:center;">Login / Register</h2>
+
+        <select id="role">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+        </select>
+
+        <input id="name" placeholder="Name (required for registration)" />
+        <input id="email" placeholder="Email" />
+        <input id="password" type="password" placeholder="Password" />
+
+        <div class="button-group">
+            <button onclick="login()">Login</button>
+            <button class="secondary" onclick="register()">Register</button>
+        </div>
+    </div>
+
+    <!-- USER DASHBOARD -->
+    <div id="userDashboard" class="dashboard hidden">
+        <h3>User Dashboard</h3>
+
+        <textarea id="complaintDesc" placeholder="Describe your complaint"></textarea>
+        <button onclick="raiseComplaint()">Raise Complaint</button>
+
+        <button class="secondary" onclick="loadUserComplaints()">View My Complaints</button>
+        <div id="userComplaints" class="list"></div>
+    </div>
+
+    <!-- ADMIN DASHBOARD -->
+    <div id="adminDashboard" class="dashboard hidden">
+        <h3>Admin Dashboard</h3>
+
+        <button onclick="loadAdminComplaints()">View Assigned Complaints</button>
+        <div id="adminComplaints" class="list"></div>
+    </div>
+
+</div>
+
+<script>
+    let token = "";
+    let role = "";
+
+    async function login() {
+        role = document.getElementById("role").value;
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        const res = await fetch(`http://localhost:8080/${role}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ emailId: email, password })
+        });
+
+        if (!res.ok) {
+            alert("Login failed");
+            return;
+        }
+
+        token = await res.text();
+        showDashboard();
+    }
+
+    async function register() {
+        role = document.getElementById("role").value;
+
+        const body = {
+            adminName: document.getElementById("name").value,
+            userName: document.getElementById("name").value,
+            emailId: document.getElementById("email").value,
+            password: document.getElementById("password").value
+        };
+
+        const res = await fetch(`http://localhost:8080/${role}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+
+        res.ok
+            ? alert("Registered successfully. Please login.")
+            : alert("Registration failed");
+    }
+
+    function showDashboard() {
+        document.getElementById("auth").classList.add("hidden");
+        role === "user"
+            ? document.getElementById("userDashboard").classList.remove("hidden")
+            : document.getElementById("adminDashboard").classList.remove("hidden");
+    }
+
+    /* USER FUNCTIONS */
+
+    async function raiseComplaint() {
+        const desc = document.getElementById("complaintDesc").value;
+
+        const res = await fetch(
+            "http://localhost:8080/user/complaint/register?description=" + encodeURIComponent(desc),
+            {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            }
+        );
+
+        alert(await res.text());
+    }
+
+    async function loadUserComplaints() {
+        const res = await fetch("http://localhost:8080/user/complaints", {
+            headers: { "Authorization": "Bearer " + token }
+        });
+
+        const data = await res.json();
+        const box = document.getElementById("userComplaints");
+        box.innerHTML = "";
+
+        data.forEach(c => {
+            box.innerHTML += `
+                <div class="card">
+                    <strong>ID:</strong> ${c.complaintId}<br>
+                    <strong>Status:</strong> ${c.status}
+                </div>`;
+        });
+    }
+
+    /* ADMIN FUNCTIONS */
+
+    async function loadAdminComplaints() {
+        const res = await fetch("http://localhost:8080/admin/complaints", {
+            headers: { "Authorization": "Bearer " + token }
+        });
+
+        const data = await res.json();
+        const box = document.getElementById("adminComplaints");
+        box.innerHTML = "";
+
+        data.forEach(c => {
+            box.innerHTML += `
+                <div class="card">
+                    <strong>ID:</strong> ${c.complaintId}<br>
+                    <strong>Status:</strong> ${c.status}<br>
+                    <button onclick="resolve(${c.complaintId})">Resolve</button>
+                </div>`;
+        });
+    }
+
+    async function resolve(id) {
+        await fetch(`http://localhost:8080/admin/complaint/resolve/${id}`, {
+            method: "PUT",
+            headers: { "Authorization": "Bearer " + token }
+        });
+        loadAdminComplaints();
+    }
+</script>
+
+</body>
+</html>
